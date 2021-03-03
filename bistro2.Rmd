@@ -1,0 +1,100 @@
+---
+title: "Bistro2: analysis of amplicon bisulfite sequencing"
+author: "Mark Ziemann"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+theme: cosmo
+---
+
+# Intro
+
+```{r}
+
+library("reshape2")
+library("kableExtra")
+library("dplyr")
+library("RColorBrewer")
+
+library("GenomicRanges")
+library("limma")
+library("methylKit")
+
+DATADIR="fastq"
+
+```
+
+
+# Off target reads
+
+```{r, offtarget}
+
+oft_name = paste(DATADIR,"/3col_offtarget.tsv",sep="")
+
+oft <- read.table(oft_name)
+
+x <- t( as.matrix(acast(oft, V2~V1, value.var="V3")) )
+
+x <- x[,which(colSums(x)!=0)]
+
+x %>% kbl() %>% kable_styling()
+
+xx <- t(x/rowSums(x) * 100)
+
+t(xx) %>% kbl() %>% kable_styling()
+
+par(mar=c(5, 10, 5, 2))
+barplot(rowSums(x),horiz=TRUE,las=1,cex.names=0.7,main="total reads")
+
+barplot(x[,1],horiz=TRUE,las=1,cex.names=0.7,main="assigned reads (on target)")
+
+barplot(x[,2],horiz=TRUE,las=1,cex.names=0.7,main="unassigned reads (ambiguity)")
+
+barplot(x[,3],horiz=TRUE,las=1,cex.names=0.7,main="unassigned reads (off target)")
+
+barplot(x[,4],horiz=TRUE,las=1,cex.names=0.7,main="unmapped reads ")
+
+par(mar=c(5, 10, 5, 2))
+barplot(xx,horiz=TRUE,las=1,cex.names=0.6,xlab="proportion of reads (%)", 
+  legend.text=TRUE,
+  args.legend = list(x = "topright" , bty = "n", inset=c(0, -0.15), cex=0.8))
+
+barplot(xx[1,],horiz=TRUE,las=1,cex.names=0.7,main="proportion of reads on target (%)")
+
+```
+
+
+## On target reads
+
+```{r, ontarget}
+
+ont_name = paste(DATADIR,"/3col_ontarget.tsv",sep="")
+
+ont <- read.table(ont_name)
+
+y <-t( as.matrix(acast(ont, V2~V1, value.var="V3")) )
+
+y %>% kbl() %>% kable_styling()
+
+yy <- t(y/rowSums(y) * 100)
+
+par(mar=c(5, 10, 5, 2))
+barplot(yy,horiz=TRUE,las=1,cex.names=0.6,xlab="proportion of reads (%)",
+  legend.text=TRUE,col=brewer.pal(n = 7, name = "Set1"),
+  args.legend = list(x = "left" , bty = "n", inset=c(-0.4, -0.15), cex=0.8))
+
+
+```
+
+
+
+
+## Session info
+
+```{r,sessioninfo}
+
+sessionInfo()
+
+
+```
