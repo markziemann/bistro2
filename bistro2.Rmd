@@ -8,27 +8,27 @@ output:
 theme: cosmo
 ---
 
-# Intro
+## Intro
 
-```{r}
-
-library("reshape2")
-library("kableExtra")
-library("dplyr")
-library("RColorBrewer")
-
-library("GenomicRanges")
-library("limma")
-library("methylKit")
-
-DATADIR="fastq"
+```{r,libs}
+suppressPackageStartupMessages({
+  library("reshape2")
+  library("kableExtra")
+  library("dplyr")
+  library("RColorBrewer")
+  library("GenomicRanges")
+  library("limma")
+  library("methylKit")
+})
 
 ```
 
 
-# Off target reads
+## Off target reads
 
-```{r, offtarget}
+```{r, offtarget, fig.height=8,fig.width=8}
+
+DATADIR="fastq"
 
 oft_name = paste(DATADIR,"/3col_offtarget.tsv",sep="")
 
@@ -45,29 +45,30 @@ xx <- t(x/rowSums(x) * 100)
 t(xx) %>% kbl() %>% kable_styling()
 
 par(mar=c(5, 10, 5, 2))
-barplot(rowSums(x),horiz=TRUE,las=1,cex.names=0.7,main="total reads")
+barplot(rowSums(x),horiz=TRUE,las=1,cex.names=0.7,main="total reads") ; grid()
 
-barplot(x[,1],horiz=TRUE,las=1,cex.names=0.7,main="assigned reads (on target)")
+barplot(x[,1],horiz=TRUE,las=1,cex.names=0.7,main="assigned reads (on target)") ; grid()
 
-barplot(x[,2],horiz=TRUE,las=1,cex.names=0.7,main="unassigned reads (ambiguity)")
+barplot(x[,2],horiz=TRUE,las=1,cex.names=0.7,main="unassigned reads (ambiguity)") ; grid()
 
-barplot(x[,3],horiz=TRUE,las=1,cex.names=0.7,main="unassigned reads (off target)")
+barplot(x[,3],horiz=TRUE,las=1,cex.names=0.7,main="unassigned reads (off target)") ; grid()
 
-barplot(x[,4],horiz=TRUE,las=1,cex.names=0.7,main="unmapped reads ")
+barplot(x[,4],horiz=TRUE,las=1,cex.names=0.7,main="unmapped reads ") ; grid()
 
 par(mar=c(5, 10, 5, 2))
 barplot(xx,horiz=TRUE,las=1,cex.names=0.6,xlab="proportion of reads (%)", 
   legend.text=TRUE,
   args.legend = list(x = "topright" , bty = "n", inset=c(0, -0.15), cex=0.8))
+  grid()
 
-barplot(xx[1,],horiz=TRUE,las=1,cex.names=0.7,main="proportion of reads on target (%)")
+barplot(xx[1,],horiz=TRUE,las=1,cex.names=0.7,main="proportion of reads on target (%)") ; grid()
 
 ```
 
 
 ## On target reads
 
-```{r, ontarget}
+```{r, ontarget, fig.height=8,fig.width=8}
 
 ont_name = paste(DATADIR,"/3col_ontarget.tsv",sep="")
 
@@ -82,12 +83,248 @@ yy <- t(y/rowSums(y) * 100)
 par(mar=c(5, 10, 5, 2))
 barplot(yy,horiz=TRUE,las=1,cex.names=0.6,xlab="proportion of reads (%)",
   legend.text=TRUE,col=brewer.pal(n = 7, name = "Set1"),
-  args.legend = list(x = "left" , bty = "n", inset=c(-0.4, -0.15), cex=0.8))
+  args.legend = list(x = "left" , bty = "n", inset=c(-0.3, -0.15), cex=0.8))
+grid()
 
+yy <- yy[,which(colnames(yy) != "Neg")]
+
+colfunc <- colorRampPalette(c("white", "blue"))
+
+heatmap.2(yy,trace="none",scale="none",col=colfunc(25))
+
+```
+
+## Look at methylation levels
+
+Looking at the average CpG methylation levels across the whole genome.
+It shows that total methylation levels are very high across the whole sample set.
+Pool MM is the unmethylated control with ~20% methylation.
+Pool M is the methylated control with ~91% methylation.
+
+```{r,cpg_methlevels,fig.height=8,fig.width=8}
+
+myfilelist <- list.files("fastq",pattern="vcf_meth_average.tsv", full.names = TRUE)
+samplelist <- gsub(".bam.vcf_meth_average.tsv","",myfilelist)
+
+myread2 <- function(myfile){
+  read.table(myfile,header=TRUE)
+}
+
+z <- lapply(myfilelist, myread2)
+zz <- lapply(z,function(x) {tail(x,1)[4] } )
+zz <- unlist(zz)
+zz <- gsub("%","",zz)
+zz <- as.numeric(zz)
+
+nz <- lapply(z,function(x) {tail(x,1)[1] } )
+nz <- unname(gsub(".bam","",gsub("fastq/","",unlist(nz))))
+names(zz) <- nz
+
+par(mar=c(5, 10, 5, 2))
+barplot(zz,horiz=TRUE,las=1,cex.names=0.6,xlab="percent CpG methylation")
+grid()
+
+```
+
+Now I will look at average CpH methylation levels across the whole genome
+
+```{r,cph_methlevels,fig.height=8,fig.width=8}
+
+z <- lapply(myfilelist, myread2)
+zz <- lapply(z,function(x) {tail(x,1)[10] } )
+zz <- unlist(zz)
+zz <- gsub("%","",zz)
+zz <- as.numeric(zz)
+
+nz <- lapply(z,function(x) {tail(x,1)[1] } )
+nz <- unname(gsub(".bam","",gsub("fastq/","",unlist(nz))))
+names(zz) <- nz
+
+par(mar=c(5, 10, 5, 2))
+barplot(zz,horiz=TRUE,las=1,cex.names=0.6,xlab="percent CpH methylation")
+grid()
 
 ```
 
 
+## Read in data
+
+myobjf looks strange because if the coverage is high, it gets capped to approx 2623.
+
+
+```{r,readin_qc}
+
+file.list <- list.files(DATADIR,pattern="methylkit.tsv",full.names=TRUE)
+lines <- lapply(file.list,readLines)
+file.list <- file.list[which(lapply(lines,length) > 0)]
+
+samplesheet <- read.table("../sample_info/samplesheet_2020-10-15.tsv",sep="\t",header=TRUE)
+samplesheet$poolID <- paste("pool",samplesheet$Internal_ID,sep="")
+
+# filter files for those in the sample sheet
+file.list <- sapply(strsplit(file.list,"\\."),"[[",1) 
+
+file.list <- sapply(strsplit(file.list,"/"),"[[",2) 
+
+file.list <- file.list[grep("ool",file.list)]
+file.list
+
+myobj <- methRead( location=as.list(paste("fastq/",file.list,".methylkit.tsv",sep="")),
+  sample.id=as.list(file.list),
+  header=FALSE,
+  assembly="hg38",
+  treatment=sample(1:length(file.list)),
+  context="CpG",
+  mincov = 0 )
+
+myobjf <- filterByCoverage(myobj,lo.count=0,lo.perc=NULL,
+  hi.count=NULL,hi.perc=NULL)
+
+meth <- unite(myobjf, destrand=FALSE)
+
+percMethylation(meth) %>% kbl() %>% kable_styling()
+
+
+```
+
+## Basic plots
+
+```{r, plots1, fig.height=8,fig.width=8}
+
+getCorrelation(meth,plot=TRUE)
+clusterSamples(meth, dist="correlation", method="ward", plot=TRUE)
+PCASamples(meth, screeplot=TRUE)
+pc <- PCASamples(meth,obj.return=TRUE)
+plot(pc$x[,1],pc$x[,2],bty="n",type="n")
+grid()
+text(pc$x[,1],pc$x[,2],labels=rownames(pc$x),cex=0.7)
+
+```
+
+Now to remove control samples and others not included on the samplesheet.
+
+
+```{r,readin_qc2}
+
+file.list[which(! file.list %in% samplesheet$poolID)]
+file.list <- file.list[which(file.list %in% samplesheet$poolID)]
+# filter samplesheet for those with files
+samplesheet <- samplesheet[which( samplesheet$poolID  %in% file.list ),]
+
+myobj <- methRead( location=as.list(paste("fastq/",file.list,".methylkit.tsv",sep="")),
+  sample.id=as.list(samplesheet$poolID),
+  header=FALSE,
+  assembly="hg38",
+  treatment=samplesheet$GWG,
+  context="CpG",
+  mincov = 5 )
+
+myobjf <- filterByCoverage(myobj,lo.count=5,lo.perc=NULL,
+  hi.count=NULL,hi.perc=NULL)
+
+meth <- unite(myobjf, destrand=FALSE)
+
+```
+
+## Read amplicon features
+
+```{r,amplicons}
+
+bed <- read.table("amplicons_hg38.bed")
+
+amp <- GRanges(seqnames=bed$V1,ranges=IRanges(bed$V2,bed$V3))
+
+amp$gene_names <- bed$V4
+
+```
+
+## Statistical analysis
+
+```{r,stats}
+
+dm <- calculateDiffMeth(meth)
+
+dm
+
+dm$pvalue<0.05
+
+min(dm$pvalue)
+
+plot(dm$meth.diff,-log10(dm$pvalue) )
+
+hist(dm$meth.diff)
+
+#dm.hyper=getMethylDiff(dm,difference=1,qvalue=0.01,type="hyper")
+
+#dm.hypo=getMethylDiff(dm,difference=1,qvalue=0.01,type="hypo")
+
+```
+
+## Lets run a simple correlation test
+
+```{r,correl1}
+
+z <- samplesheet$GWG
+
+genes <- amp
+
+genes %>% kbl() %>% kable_styling()
+
+par(mfrow=c(1,2))
+x <- lapply( 1:nrow(meth), function(i) {
+  x <- as.vector(percMethylation(meth)[i,])
+  cor <- cor.test(x,z,method="pearson")
+  p <- cor$p.value
+  r <- cor$estimate
+  CHR=as.vector(seqnames(GRanges(meth)))[i]
+  POS=as.character(start(ranges(GRanges(meth)))[i])
+  CHRPOS=paste("chr",CHR,":",POS,sep="")
+  HEADER = paste("Site",i,CHRPOS,"p=",round(p,3)," r=",round(r,3))
+
+  plot(z,x,xlab="GWG",ylab="Beta",main="Pearson")
+  mtext(HEADER)
+  mylm <- lm( x ~ z )
+  abline(mylm,lwd=3,lty=2,col="red")
+
+
+  cor <- cor.test(x,z,method="spearman")
+  p <- cor$p.value
+  r <- cor$estimate
+  CHR=as.vector(seqnames(GRanges(meth)))[i]
+  POS=as.character(start(ranges(GRanges(meth)))[i])
+  CHRPOS=paste("chr",CHR,":",POS,sep="")
+  HEADER = paste("Site",i,CHRPOS,"p=",round(p,3)," r=",round(r,3))
+
+  plot(rank(z),rank(x),xlab="rank(GWG)",ylab="rank(Beta)",main="Spearman")
+  mtext(HEADER)
+  mylm <- lm( rank(x) ~ rank(z) )
+  abline(mylm,lwd=3,lty=2,col="red")
+
+  c("p"=p,"r"=r)
+})
+
+```
+
+
+```{r,correl2}
+
+xx <- as.data.frame(t(sapply(x,function(x){ x[c(2,1)] } )))
+xx$FDR <- p.adjust(xx[,2],method="fdr")
+xx <- data.frame(meth$chr,meth$start,xx)
+colnames(xx) <- c("seqname","pos","rho","p","FDR")
+
+gr <- GRanges(seqnames = xx$seqname, ranges = IRanges(xx$pos) )
+gr$r <- xx$r
+gr$p <- xx$p
+gr$FDR <- xx$FDR
+
+ol <- findOverlaps(gr,genes)
+
+gr$gene_name <- genes$gene_names[subjectHits(ol) ]
+
+gr %>% kbl() %>% kable_styling()
+
+```
 
 
 ## Session info
@@ -95,6 +332,5 @@ barplot(yy,horiz=TRUE,las=1,cex.names=0.6,xlab="proportion of reads (%)",
 ```{r,sessioninfo}
 
 sessionInfo()
-
 
 ```
