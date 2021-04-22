@@ -19,6 +19,7 @@ suppressPackageStartupMessages({
   library("GenomicRanges")
   library("limma")
   library("methylKit")
+  library("gplots")
 })
 
 ```
@@ -91,6 +92,113 @@ yy <- yy[,which(colnames(yy) != "Neg")]
 colfunc <- colorRampPalette(c("white", "blue"))
 
 heatmap.2(yy,trace="none",scale="none",col=colfunc(25))
+
+```
+
+## Look at on-target reads
+
+Here we have a summary of the reads that were on target for each amplicon for each individual.
+
+```{r, ontarget2}
+
+myfiles <- list.files("fastq/",pattern="bedgraph.intersect",full.names=TRUE)
+
+ont <- lapply(myfiles, function(x)  { y <- read.table(x,header=TRUE) ; y  }  )
+
+names(ont) <- gsub(".bam.bedgraph.intersect","",gsub("fastq//","",myfiles))
+
+ont
+
+```
+
+## Look at off-target reads
+
+Here we have the details of each of the off-target genomic regions that were identified in this assay.
+I've also got the location of the closest gene.
+
+```{r, offtarget2}
+
+myfiles <- list.files("fastq/",pattern=".bedgraph.offtarget.genes$",full.names=TRUE)
+
+oft <- lapply(myfiles, function(x)  { y <- read.table(x,header=TRUE) ; y  }  )
+
+names(oft) <- gsub(".bam.bedgraph.offtarget.genes","",gsub("fastq//","",myfiles))
+
+oft
+
+```
+
+Now we can look at the sequence of these off-target regions. 
+Lower case indicates that the sequence was repeat-masked.
+
+```{r, offtarget3}
+
+myfiles <- list.files("fastq/",pattern=".bedgraph.offtarget.fa$",full.names=TRUE)
+
+oft2 <- lapply(myfiles, function(x)  {
+  y <- readLines(x)
+  n=length(y)
+  if(n>0){
+    seq <- y[(1:(n/2))*2]
+    names(seq) <- y[((1:(n/2))*2)-1]
+    seq  
+  }
+})
+
+names(oft2) <- gsub(".bam.bedgraph.offtarget.fa","",gsub("fastq//","",myfiles))
+
+oft2
+
+```
+
+## Look at the origin of the off-target reads
+
+If we look at the similarity of the genomic locations with the amplicons we should be able to track down which primer was 
+responsible for which off-target region.
+The primers are 16-26 bp in length so I will use the 20bp at the termini to do this classification.
+
+In these heatmaps, the seq names along the bottom are the target amplicons and the ones along the right are the off-target regions.
+
+The deeper the red, the smaller the sequence edit distance.
+
+```{r, offtarget4,fig.width=8,fig.height=8}
+
+# amplicon termini
+
+x <- readLines("amplicons_hg38.bed.starts.fa")
+n=length(x)
+amp_st <- x[(1:(n/2))*2]
+names(amp_st) <- x[((1:(n/2))*2)-1]
+
+x <- readLines("amplicons_hg38.bed.ends.fa")
+n=length(x)
+amp_en <- x[(1:(n/2))*2]
+names(amp_en) <- x[((1:(n/2))*2)-1]
+
+amp <-c(amp_st,amp_en)
+
+# seq termini
+mystarts <- list.files("fastq/",pattern=".bedgraph.offtarget.starts.fa$",full.names=TRUE)
+myends <- list.files("fastq/",pattern=".bedgraph.offtarget.ends.fa$",full.names=TRUE)
+
+idxs <- grep("ool",mystarts)
+
+lapply(idxs, function(z) {
+  mystart <- mystarts[z]
+  x <- readLines(mystart)
+  n=length(x)
+  st <- x[(1:(n/2))*2]
+  names(st) <- x[((1:(n/2))*2)-1]
+  myend <- myends[z]
+  x <- readLines(myend)
+  n=length(x)
+  en <- x[(1:(n/2))*2]
+  names(en) <- x[((1:(n/2))*2)-1]
+  seq <-c(st,en)
+  adist(seq,amp)
+  colfunc <- colorRampPalette(c("red", "white"))
+  heatmap.2(adist(seq,amp),col=colfunc(50),trace="none",scale="none",margin=c(15,20),main=names(oft2)[z])
+})
 
 ```
 
