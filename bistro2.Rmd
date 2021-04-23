@@ -285,7 +285,7 @@ myobj <- methRead( location=as.list(paste("fastq/",file.list,".methylkit.tsv",se
   context="CpG",
   mincov = 0 )
 
-myobjf <- filterByCoverage(myobj,lo.count=0,lo.perc=NULL,
+myobjf <- filterByCoverage(myobj,lo.count=3,lo.perc=NULL,
   hi.count=NULL,hi.perc=NULL)
 
 meth <- unite(myobjf, destrand=FALSE)
@@ -428,7 +428,14 @@ gr$FDR <- xx$FDR
 
 ol <- findOverlaps(gr,genes)
 
-gr$gene_name <- genes$gene_names[subjectHits(ol) ]
+# off target gene methylation
+ot <- gr[-queryHits(ol)]
+ot %>% kbl() %>% kable_styling()
+
+# on target methylation
+gr <- gr[queryHits(ol)]
+
+gr$gene_names <- genes$gene_names[subjectHits(ol) ]
 
 gr %>% kbl() %>% kable_styling()
 

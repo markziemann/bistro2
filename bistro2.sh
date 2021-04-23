@@ -16,12 +16,12 @@ NCPU=$((NCPU-1))
 awk 'OFS="\t" {print $4, $1, $2, $3, "."}' $AMPL > $SAF
 bedtools getfasta -fi $REF -bed $AMPL > $AMPL_FA
 
-cut -c-25 $AMPL_FA \
+cut -c-20 $AMPL_FA \
 | tr '[:lower:]' '[:upper:]' \
 | sed 's/CG/YG/g' | sed 's/C/T/g' > $AMPL_FA_STARTS
 
 revseq -sequence $AMPL_FA -outseq /dev/stdout \
-| perl unwrap_fasta.pl - - | cut -d ' ' -f1 | cut -c-25 \
+| perl unwrap_fasta.pl - - | cut -d ' ' -f1 | cut -c-20 \
 | tr '[:lower:]' '[:upper:]' \
 | sed 's/CG/YG/g' | sed 's/C/T/g' > $AMPL_FA_ENDS
 
@@ -38,8 +38,11 @@ for BASE in $(cut -f1 $SS | sed 1d) ; do
 
     skewer -q 20 $FQZ1 $FQZ2
 
+    # have removed samblaster because it was excluding reads with out proper mates
+    # for WGBS run samplblaster after biscuit and before samtools sort
     biscuit align -@ $NCPU $REF $FQ1 $FQ2 \
-    | samblaster | samtools sort -o $BAM -O BAM -
+    | samtools sort -o $BAM -O BAM -
+
 
     rm $FQ1 $FQ2
 
@@ -47,7 +50,8 @@ for BASE in $(cut -f1 $SS | sed 1d) ; do
 
     samtools flagstat $BAM > $BAM.flagstat.txt
 
-    biscuit pileup -u -o $VCF $REF $BAM
+    # -p means no filtering out unproper pairs
+    biscuit pileup -p -u -o $VCF $REF $BAM
 
     bgzip -f $VCF
 
@@ -93,7 +97,7 @@ for BASE in $(cut -f1 $SS | sed 1d) ; do
   | sed 's/ //2' | sed 's/ /\n/2' > $BAM.bedgraph.offtarget.fa
 
   cat $BAM.bedgraph.offtarget.fa | paste - - \
-  | awk 'length($3)>60'  | awk '{ print $1,$2,substr($3,1,25) }' \
+  | awk 'length($3)>60'  | awk '{ print $1,$2,substr($3,1,20) }' \
   | sed 's/ /\n/2' \
   | tr '[:lower:]' '[:upper:]' \
   | sed 's/CG/YG/g' | sed 's/C/T/g' > $BAM.bedgraph.offtarget.starts.fa
@@ -101,7 +105,7 @@ for BASE in $(cut -f1 $SS | sed 1d) ; do
   revseq -sequence $BAM.bedgraph.offtarget.fa -outseq /dev/stdout \
   | perl unwrap_fasta.pl - -  \
   | sed 's/ Reversed: / /' | paste - - | awk 'length($3)>60'  \
-  | awk '{ print $1,$2,substr($3,1,25) }' \
+  | awk '{ print $1,$2,substr($3,1,20) }' \
   | sed 's/ /\n/2' \
   | tr '[:lower:]' '[:upper:]' \
   | sed 's/CG/YG/g' | sed 's/C/T/g' > $BAM.bedgraph.offtarget.ends.fa
