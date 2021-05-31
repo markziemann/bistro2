@@ -20,6 +20,7 @@ suppressPackageStartupMessages({
   library("limma")
   library("methylKit")
   library("gplots")
+  library("seqinr")
 })
 
 ```
