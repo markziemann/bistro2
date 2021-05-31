@@ -24,6 +24,21 @@ suppressPackageStartupMessages({
 
 ```
 
+## Notes
+
+Pool1 and pool1 data were merged before analysis.
+
+There is some data named pool14b which was changed to pool14.
+
+My notes from our meeting yesterday:
+
+* Percent CpG sites with usable data (done)
+
+* Just provide the beta values (done)
+
+* remove pool8, pool17 and rerun stats
+
+* Adjust by bisulfite conversion
 
 ## Off target reads
 
@@ -75,7 +90,7 @@ ont_name = paste(DATADIR,"/3col_ontarget.tsv",sep="")
 
 ont <- read.table(ont_name)
 
-y <-t( as.matrix(acast(ont, V2~V1, value.var="V3")) )
+y <-t( as.matrix(acast(ont, V2~V1, value.var="V3",fun.aggregate=sum)) )
 
 y %>% kbl() %>% kable_styling()
 
@@ -87,11 +102,12 @@ barplot(yy,horiz=TRUE,las=1,cex.names=0.6,xlab="proportion of reads (%)",
   args.legend = list(x = "left" , bty = "n", inset=c(-0.3, -0.15), cex=0.8))
 grid()
 
-yy <- yy[,which(colnames(yy) != "Neg")]
+yy <- yy[,which( ! colnames(yy) %in% c("Neg","101-1023","185-1135","7185","NTC","Pool1")   )]
 
 colfunc <- colorRampPalette(c("white", "blue"))
 
 heatmap.2(yy,trace="none",scale="none",col=colfunc(25))
+
 
 ```
 
@@ -266,7 +282,8 @@ file.list <- list.files(DATADIR,pattern="methylkit.tsv",full.names=TRUE)
 lines <- lapply(file.list,readLines)
 file.list <- file.list[which(lapply(lines,length) > 0)]
 
-samplesheet <- read.table("../sample_info/samplesheet_2020-10-15.tsv",sep="\t",header=TRUE)
+samplesheet <- read.table("sample_info/samplesheet_2020-10-15.tsv",sep="\t",header=TRUE)
+
 samplesheet$poolID <- paste("pool",samplesheet$Internal_ID,sep="")
 
 # filter files for those in the sample sheet
@@ -295,6 +312,74 @@ percMethylation(meth) %>% kbl() %>% kable_styling()
 
 ```
 
+## Export data for downstream analysis
+
+Here I'm exporting the number of Cs and Ts at each position.
+Then I'm also providing the beta values.
+
+```{r,export_meth_data}
+
+mytable <- getData(meth)
+
+write.table(x=mytable,file="methylation_data.tsv",sep="\t",quote=FALSE)
+
+mytable2 <- percMethylation(meth)
+
+mytable3 <- cbind(mytable[,1:3],mytable2)
+
+write.table(x=mytable3,file="methylation_betavals.tsv",sep="\t",quote=FALSE)
+
+```
+
+## Proportion of CpG sites with usable data
+
+* Percent CpG sites with usable data
+
+```{r,usable_data_cg}
+
+fa <- read.fasta("amplicons_hg38.bed.fa")
+
+# count CpG sites
+cnt_cpg <- function(fa1) {
+  length(which(
+    sapply( 1:(length(fa1)-1), function(i) {
+      motif <- fa1[i:(i+1)]
+      sum(as.numeric(motif == c("c","g")) )==2  
+    })
+  ))
+}
+
+num_cpg <- lapply(fa, cnt_cpg)
+
+start_pos <- sapply(strsplit(names(num_cpg),":"),"[[",2)
+start_pos <- sapply(strsplit(start_pos,"-"),"[[",1)
+
+end_pos <- sapply(strsplit(names(num_cpg),":"),"[[",2)
+end_pos <- sapply(strsplit(end_pos,"-"),"[[",2)
+
+chrs <- sapply(strsplit(names(num_cpg),":"),"[[",1)
+
+res <- lapply(1:length(num_cpg),function(i) {
+  mychr <- chrs[i]
+  mysubset <- mytable3[ which(mytable3$chr==mychr),]
+  mystart <- start_pos[i]
+  mysubset <- mysubset[which(mysubset$start > mystart),]
+  myend <- end_pos[i]
+  mysubset <- mysubset[which(mysubset$end < myend),]
+  nrow(mysubset)
+})
+
+mydf <- as.data.frame(unlist(num_cpg))
+
+mydf$covered_cpg <- unlist(res)
+
+colnames(mydf)[1] <- "num_CpGs"
+
+mydf %>% kbl() %>% kable_styling()
+
+
+```
+
 ## Basic plots
 
 ```{r, plots1, fig.height=8,fig.width=8}
@@ -314,8 +399,8 @@ Now to remove control samples and others not included on the samplesheet.
 
 ```{r,readin_qc2}
 
-file.list[which(! file.list %in% samplesheet$poolID)]
 file.list <- file.list[which(file.list %in% samplesheet$poolID)]
+
 # filter samplesheet for those with files
 samplesheet <- samplesheet[which( samplesheet$poolID  %in% file.list ),]
 
@@ -370,6 +455,8 @@ hist(dm$meth.diff)
 
 ## Lets run a simple correlation test
 
+Here we run a spearman correlation test.
+
 ```{r,correl1}
 
 z <- samplesheet$GWG
@@ -394,7 +481,6 @@ x <- lapply( 1:nrow(meth), function(i) {
   mylm <- lm( x ~ z )
   abline(mylm,lwd=3,lty=2,col="red")
 
-
   cor <- cor.test(x,z,method="spearman")
   p <- cor$p.value
   r <- cor$estimate
@@ -413,6 +499,7 @@ x <- lapply( 1:nrow(meth), function(i) {
 
 ```
 
+Now let's present the results.
 
 ```{r,correl2}
 
@@ -441,6 +528,104 @@ gr %>% kbl() %>% kable_styling()
 
 ```
 
+## Remove outliers
+
+Two samples (pool8, pool17) showed unusual profiles that are consistent with incomplete bisulfite conversion.
+
+```{r,remove_pool8_pool17}
+
+file.list <- file.list[which(! file.list %in% c("pool8","pool17"))]
+
+samplesheet <- samplesheet[which(! samplesheet$poolID %in% c("pool8","pool17")),]
+
+
+myobj <- methRead( location=as.list(paste("fastq/",file.list,".methylkit.tsv",sep="")),
+  sample.id=as.list(samplesheet$poolID),
+  header=FALSE,
+  assembly="hg38",
+  treatment=samplesheet$GWG,
+  context="CpG",
+  mincov = 5 )
+
+myobjf <- filterByCoverage(myobj,lo.count=5,lo.perc=NULL,
+  hi.count=NULL,hi.perc=NULL)
+
+meth <- unite(myobjf, destrand=FALSE)
+
+```
+
+Now run a spearman correlation test.
+
+```{r,correl3}
+
+z <- samplesheet$GWG
+
+genes <- amp
+
+genes %>% kbl() %>% kable_styling()
+
+par(mfrow=c(1,2))
+x <- lapply( 1:nrow(meth), function(i) {
+  x <- as.vector(percMethylation(meth)[i,])
+  cor <- cor.test(x,z,method="pearson")
+  p <- cor$p.value
+  r <- cor$estimate
+  CHR=as.vector(seqnames(GRanges(meth)))[i]
+  POS=as.character(start(ranges(GRanges(meth)))[i])
+  CHRPOS=paste("chr",CHR,":",POS,sep="")
+  HEADER = paste("Site",i,CHRPOS,"p=",round(p,3)," r=",round(r,3))
+
+  plot(z,x,xlab="GWG",ylab="Beta",main="Pearson")
+  mtext(HEADER)
+  mylm <- lm( x ~ z )
+  abline(mylm,lwd=3,lty=2,col="red")
+
+  cor <- cor.test(x,z,method="spearman")
+  p <- cor$p.value
+  r <- cor$estimate
+  CHR=as.vector(seqnames(GRanges(meth)))[i]
+  POS=as.character(start(ranges(GRanges(meth)))[i])
+  CHRPOS=paste("chr",CHR,":",POS,sep="")
+  HEADER = paste("Site",i,CHRPOS,"p=",round(p,3)," r=",round(r,3))
+
+  plot(rank(z),rank(x),xlab="rank(GWG)",ylab="rank(Beta)",main="Spearman")
+  mtext(HEADER)
+  mylm <- lm( rank(x) ~ rank(z) )
+  abline(mylm,lwd=3,lty=2,col="red")
+
+  c("p"=p,"r"=r)
+})
+
+```
+
+```{r,correl4}
+
+xx <- as.data.frame(t(sapply(x,function(x){ x[c(2,1)] } )))
+xx$FDR <- p.adjust(xx[,2],method="fdr")
+xx <- data.frame(meth$chr,meth$start,xx)
+colnames(xx) <- c("seqname","pos","rho","p","FDR")
+
+gr <- GRanges(seqnames = xx$seqname, ranges = IRanges(xx$pos) )
+gr$r <- xx$r
+gr$p <- xx$p
+gr$FDR <- xx$FDR
+
+ol <- findOverlaps(gr,genes)
+
+# off target gene methylation
+ot <- gr[-queryHits(ol)]
+ot %>% kbl() %>% kable_styling()
+
+# on target methylation
+gr <- gr[queryHits(ol)]
+
+gr$gene_names <- genes$gene_names[subjectHits(ol) ]
+
+gr %>% kbl() %>% kable_styling()
+
+```
+
+## Adjust by bisulfite conversion
 
 ## Session info
 
@@ -449,3 +634,6 @@ gr %>% kbl() %>% kable_styling()
 sessionInfo()
 
 ```
+
+
+
