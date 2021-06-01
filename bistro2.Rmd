@@ -5,6 +5,7 @@ date: "`r Sys.Date()`"
 output:
   html_document:
     toc: true
+    toc_float: true
 theme: cosmo
 ---
 
@@ -268,6 +269,8 @@ names(zz) <- nz
 par(mar=c(5, 10, 5, 2))
 barplot(zz,horiz=TRUE,las=1,cex.names=0.6,xlab="percent CpH methylation")
 grid()
+
+cph <- 
 
 ```
 
@@ -627,6 +630,101 @@ gr %>% kbl() %>% kable_styling()
 ```
 
 ## Adjust by bisulfite conversion
+
+Methaverage file columns
+
+sample	chrm	CGn	CGb	CHGn	CHGb	CHHn	CHHb	CHn	CHb
+
+
+```{r,methaverage}
+
+ma <- read.table("fastq/methaverage.tsv")
+
+ma$pool <- sapply(strsplit(ma$V1 , "\\."),"[[",1)
+
+colnames(ma) <- c("sample","chr","CGn","CGb","CHGn","CHGb","CHHn","CHHb","CHn","CHb","Pool")
+
+ma %>% kbl() %>% kable_styling()
+
+```
+
+Now run a spearman correlation test after correcting for CHH beta value (pool8 and pool17 still omitted).
+
+
+```{r,correl5}
+
+z <- samplesheet$GWG
+
+chh <- ma[match(samplesheet$poolID, ma$Pool),]$CHHb
+
+genes <- amp
+
+genes %>% kbl() %>% kable_styling()
+
+par(mfrow=c(1,2))
+x <- lapply( 1:nrow(meth), function(i) {
+  x <- as.vector(percMethylation(meth)[i,] - chh)
+  cor <- cor.test(x,z,method="pearson")
+  p <- cor$p.value
+  r <- cor$estimate
+  CHR=as.vector(seqnames(GRanges(meth)))[i]
+  POS=as.character(start(ranges(GRanges(meth)))[i])
+  CHRPOS=paste("chr",CHR,":",POS,sep="")
+  HEADER = paste("Site",i,CHRPOS,"p=",round(p,3)," r=",round(r,3))
+
+  plot(z,x,xlab="GWG",ylab="Beta",main="Pearson")
+  mtext(HEADER)
+  mylm <- lm( x ~ z )
+  abline(mylm,lwd=3,lty=2,col="red")
+
+  cor <- cor.test(x,z,method="spearman")
+  p <- cor$p.value
+  r <- cor$estimate
+  CHR=as.vector(seqnames(GRanges(meth)))[i]
+  POS=as.character(start(ranges(GRanges(meth)))[i])
+  CHRPOS=paste("chr",CHR,":",POS,sep="")
+  HEADER = paste("Site",i,CHRPOS,"p=",round(p,3)," r=",round(r,3))
+
+  plot(rank(z),rank(x),xlab="rank(GWG)",ylab="rank(Beta)",main="Spearman")
+  mtext(HEADER)
+  mylm <- lm( rank(x) ~ rank(z) )
+  abline(mylm,lwd=3,lty=2,col="red")
+
+  c("p"=p,"r"=r)
+})
+
+```
+
+Present the results.
+
+```{r,correl6}
+
+xx <- as.data.frame(t(sapply(x,function(x){ x[c(2,1)] } )))
+xx$FDR <- p.adjust(xx[,2],method="fdr")
+xx <- data.frame(meth$chr,meth$start,xx)
+colnames(xx) <- c("seqname","pos","rho","p","FDR")
+
+gr <- GRanges(seqnames = xx$seqname, ranges = IRanges(xx$pos) )
+gr$r <- xx$r
+gr$p <- xx$p
+gr$FDR <- xx$FDR
+
+ol <- findOverlaps(gr,genes)
+
+# off target gene methylation
+ot <- gr[-queryHits(ol)]
+ot %>% kbl() %>% kable_styling()
+
+# on target methylation
+gr <- gr[queryHits(ol)]
+
+gr$gene_names <- genes$gene_names[subjectHits(ol) ]
+
+gr %>% kbl() %>% kable_styling()
+
+```
+
+
 
 ## Session info
 

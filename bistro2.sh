@@ -121,3 +121,5 @@ done
 cat $FF/*bam.tsv > $FF/3col_ontarget.tsv
 
 cat $FF/*bam.tsv.summary > $FF/3col_offtarget.tsv
+
+grep Whole *ool*meth_average.tsv | cut -d '/' -f2 | sed 's/%//g' > methaverage.tsv
