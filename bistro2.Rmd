@@ -270,7 +270,7 @@ par(mar=c(5, 10, 5, 2))
 barplot(zz,horiz=TRUE,las=1,cex.names=0.6,xlab="percent CpH methylation")
 grid()
 
-cph <- 
+cph <- zz
 
 ```
 
