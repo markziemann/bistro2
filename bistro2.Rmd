@@ -421,6 +421,33 @@ myobjf <- filterByCoverage(myobj,lo.count=5,lo.perc=NULL,
 
 meth <- unite(myobjf, destrand=FALSE)
 
+# run another PCA analysis
+getCorrelation(meth,plot=TRUE)
+clusterSamples(meth, dist="correlation", method="ward", plot=TRUE)
+PCASamples(meth, screeplot=TRUE)
+pc <- PCASamples(meth,obj.return=TRUE)
+plot(pc$x[,1],pc$x[,2],bty="n",type="n")
+grid()
+text(pc$x[,1],pc$x[,2],labels=rownames(pc$x),cex=0.7)
+
+```
+
+## Look at association between GWG, age and BMI
+
+```{r,basicstats}
+
+plot(samplesheet$Age, samplesheet$GWG)
+
+cor.test(samplesheet$Age, samplesheet$GWG, method="pearson")
+
+cor.test(samplesheet$Age, samplesheet$GWG, method="spearman")
+
+plot(samplesheet$BMI_1, samplesheet$GWG)
+
+cor.test(samplesheet$BMI, samplesheet$GWG, method="pearson")
+
+cor.test(samplesheet$BMI, samplesheet$GWG, method="spearman")
+
 ```
 
 ## Read amplicon features
@@ -626,6 +653,28 @@ gr <- gr[queryHits(ol)]
 gr$gene_names <- genes$gene_names[subjectHits(ol) ]
 
 gr %>% kbl() %>% kable_styling()
+
+```
+
+## Graph of correlation coefficient and p-values across gene loci
+
+```{r,loci_graph}
+
+xxgr <- GRanges(xx,seqnames=xx$seqname,ranges=IRanges(xx$pos,end=xx$pos),strand="+")
+
+mygenenames <- unique(gr$gene_names)
+
+sapply(mygenenames, function(mygenename) {
+  mygene <- gr[gr$gene_names==mygenename,]
+  myol <- findOverlaps(xxgr,mygene)
+  x <- xxgr[queryHits(myol),]
+  par(mfrow=c(2,1))
+  par(mar=c(5,4,2,2))
+  barplot(-log(x$p),names=x$pos,las=2,cex.names=0.5,ylab="-log(p) nominal",main=mygenename)
+  abline(h=-log(0.05))
+  barplot(x$rho,names=x$pos,las=2,cex.names=0.5,ylab="Spearman's rho")
+})
+
 
 ```
 
