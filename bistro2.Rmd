@@ -484,9 +484,9 @@ hist(dm$meth.diff)
 
 ```
 
-## Lets run a simple correlation test
+## Lets run a simple correlation test of GWG with Beta vals
 
-Here we run a spearman correlation test.
+Here we run a spearman correlation test of the assocation between GWG and beta vals.
 
 ```{r,correl1}
 
@@ -585,7 +585,7 @@ meth <- unite(myobjf, destrand=FALSE)
 
 ```
 
-Now run a spearman correlation test.
+Now run a spearman correlation test of GWG with Beta vals.
 
 ```{r,correl3}
 
@@ -656,9 +656,9 @@ gr %>% kbl() %>% kable_styling()
 
 ```
 
-## Graph of correlation coefficient and p-values across gene loci
+### Graph of correlation coefficient and p-values across gene loci
 
-```{r,loci_graph}
+```{r,loci_graph1}
 
 xxgr <- GRanges(xx,seqnames=xx$seqname,ranges=IRanges(xx$pos,end=xx$pos),strand="+")
 
@@ -678,33 +678,44 @@ sapply(mygenenames, function(mygenename) {
 
 ```
 
-## Adjust by bisulfite conversion
+### Permutation test
 
-Methaverage file columns
+Here I'm going to resample the existing p-value data with random methylation direction.
 
-sample	chrm	CGn	CGb	CHGn	CHGb	CHHn	CHHb	CHn	CHb
+From that distribution I can estimate the 
 
+```{r,resampling1}
 
-```{r,methaverage}
+scores <- -log10(gr$p) * sample(c(-1,1),length(gr$p),replace=TRUE)
 
-ma <- read.table("fastq/methaverage.tsv")
+npermutes = 10000
 
-ma$pool <- sapply(strsplit(ma$V1 , "\\."),"[[",1)
+permute_res <- sapply(mygenenames, function(mygenename) {
+  mygene <- gr[gr$gene_names==mygenename,]
+  myol <- findOverlaps(xxgr,mygene)
+  x <- xxgr[queryHits(myol),]
+  xscore <- mean(-log10(x$p) * as.data.frame(x)[,8])
+  permutes <- replicate(n=npermutes ,  mean( -log10(gr$p) * sample(c(-1,1),length(gr$p),replace=TRUE ) ) )
+  greaterthan <- length(which(permutes > xscore))
+  lessthan <- length(which(permutes < xscore))
+  p_greater = greaterthan / ( greaterthan + lessthan )
+  p_less = lessthan / ( greaterthan + lessthan )
+  pval <- c(p_greater,p_less)
+  names(pval) = c("pval_greater","pval_less")
+  return(pval)
+})
 
-colnames(ma) <- c("sample","chr","CGn","CGb","CHGn","CHGb","CHHn","CHHb","CHn","CHb","Pool")
-
-ma %>% kbl() %>% kable_styling()
+permute_res %>% kbl() %>% kable_styling()
 
 ```
 
-Now run a spearman correlation test after correcting for CHH beta value (pool8 and pool17 still omitted).
+## Test association of methylation with BMI
 
+Now run a spearman correlation test of BMI with Beta vals.
 
 ```{r,correl5}
 
-z <- samplesheet$GWG
-
-chh <- ma[match(samplesheet$poolID, ma$Pool),]$CHHb
+z <- samplesheet$Del_BMI
 
 genes <- amp
 
@@ -712,7 +723,7 @@ genes %>% kbl() %>% kable_styling()
 
 par(mfrow=c(1,2))
 x <- lapply( 1:nrow(meth), function(i) {
-  x <- as.vector(percMethylation(meth)[i,] - chh)
+  x <- as.vector(percMethylation(meth)[i,])
   cor <- cor.test(x,z,method="pearson")
   p <- cor$p.value
   r <- cor$estimate
@@ -744,8 +755,6 @@ x <- lapply( 1:nrow(meth), function(i) {
 
 ```
 
-Present the results.
-
 ```{r,correl6}
 
 xx <- as.data.frame(t(sapply(x,function(x){ x[c(2,1)] } )))
@@ -773,7 +782,184 @@ gr %>% kbl() %>% kable_styling()
 
 ```
 
+### Graph of correlation coefficient and p-values across gene loci
 
+```{r,loci_graph2}
+
+xxgr <- GRanges(xx,seqnames=xx$seqname,ranges=IRanges(xx$pos,end=xx$pos),strand="+")
+
+mygenenames <- unique(gr$gene_names)
+
+sapply(mygenenames, function(mygenename) {
+  mygene <- gr[gr$gene_names==mygenename,]
+  myol <- findOverlaps(xxgr,mygene)
+  x <- xxgr[queryHits(myol),]
+  par(mfrow=c(2,1))
+  par(mar=c(5,4,2,2))
+  barplot(-log(x$p),names=x$pos,las=2,cex.names=0.5,ylab="-log(p) nominal",main=mygenename)
+  abline(h=-log(0.05))
+  barplot(x$rho,names=x$pos,las=2,cex.names=0.5,ylab="Spearman's rho")
+})
+
+
+```
+
+### Permutation test  
+
+Here I'm going to resample the existing p-value data with random methylation direction.
+
+From that distribution I can estimate the 
+
+```{r,resampling2}
+
+scores <- -log10(gr$p) * sample(c(-1,1),length(gr$p),replace=TRUE)
+
+npermutes = 10000
+
+permute_res <- sapply(mygenenames, function(mygenename) {
+  mygene <- gr[gr$gene_names==mygenename,]
+  myol <- findOverlaps(xxgr,mygene)
+  x <- xxgr[queryHits(myol),]
+  xscore <- mean(-log10(x$p) * as.data.frame(x)[,8])
+  permutes <- replicate(n=npermutes ,  mean( -log10(gr$p) * sample(c(-1,1),length(gr$p),replace=TRUE ) ) )
+  greaterthan <- length(which(permutes > xscore))
+  lessthan <- length(which(permutes < xscore))
+  p_greater = greaterthan / ( greaterthan + lessthan )
+  p_less = lessthan / ( greaterthan + lessthan )
+  pval <- c(p_greater,p_less)
+  names(pval) = c("pval_greater","pval_less")
+  return(pval)
+})
+
+permute_res %>% kbl() %>% kable_styling()
+
+```
+
+## Test association of methylation with maternal age
+
+Now run a spearman correlation test of maternal age with Beta vals.
+
+```{r,correl7}
+
+z <- samplesheet$Age
+
+genes <- amp
+
+genes %>% kbl() %>% kable_styling()
+
+par(mfrow=c(1,2))
+x <- lapply( 1:nrow(meth), function(i) {
+  x <- as.vector(percMethylation(meth)[i,])
+  cor <- cor.test(x,z,method="pearson")
+  p <- cor$p.value
+  r <- cor$estimate
+  CHR=as.vector(seqnames(GRanges(meth)))[i]
+  POS=as.character(start(ranges(GRanges(meth)))[i])
+  CHRPOS=paste("chr",CHR,":",POS,sep="")
+  HEADER = paste("Site",i,CHRPOS,"p=",round(p,3)," r=",round(r,3))
+
+  plot(z,x,xlab="GWG",ylab="Beta",main="Pearson")
+  mtext(HEADER)
+  mylm <- lm( x ~ z )
+  abline(mylm,lwd=3,lty=2,col="red")
+
+  cor <- cor.test(x,z,method="spearman")
+  p <- cor$p.value
+  r <- cor$estimate
+  CHR=as.vector(seqnames(GRanges(meth)))[i]
+  POS=as.character(start(ranges(GRanges(meth)))[i])
+  CHRPOS=paste("chr",CHR,":",POS,sep="")
+  HEADER = paste("Site",i,CHRPOS,"p=",round(p,3)," r=",round(r,3))
+
+  plot(rank(z),rank(x),xlab="rank(GWG)",ylab="rank(Beta)",main="Spearman")
+  mtext(HEADER)
+  mylm <- lm( rank(x) ~ rank(z) )
+  abline(mylm,lwd=3,lty=2,col="red")
+
+  c("p"=p,"r"=r)
+})
+
+```
+
+```{r,correl8}
+
+xx <- as.data.frame(t(sapply(x,function(x){ x[c(2,1)] } )))
+xx$FDR <- p.adjust(xx[,2],method="fdr")
+xx <- data.frame(meth$chr,meth$start,xx)
+colnames(xx) <- c("seqname","pos","rho","p","FDR")
+
+gr <- GRanges(seqnames = xx$seqname, ranges = IRanges(xx$pos) )
+gr$r <- xx$r
+gr$p <- xx$p
+gr$FDR <- xx$FDR
+
+ol <- findOverlaps(gr,genes)
+
+# off target gene methylation
+ot <- gr[-queryHits(ol)]
+ot %>% kbl() %>% kable_styling()
+
+# on target methylation
+gr <- gr[queryHits(ol)]
+
+gr$gene_names <- genes$gene_names[subjectHits(ol) ]
+
+gr %>% kbl() %>% kable_styling()
+
+```
+
+### Graph of correlation coefficient and p-values across gene loci
+
+```{r,loci_graph3}
+
+xxgr <- GRanges(xx,seqnames=xx$seqname,ranges=IRanges(xx$pos,end=xx$pos),strand="+")
+
+mygenenames <- unique(gr$gene_names)
+
+sapply(mygenenames, function(mygenename) {
+  mygene <- gr[gr$gene_names==mygenename,]
+  myol <- findOverlaps(xxgr,mygene)
+  x <- xxgr[queryHits(myol),]
+  par(mfrow=c(2,1))
+  par(mar=c(5,4,2,2))
+  barplot(-log(x$p),names=x$pos,las=2,cex.names=0.5,ylab="-log(p) nominal",main=mygenename)
+  abline(h=-log(0.05))
+  barplot(x$rho,names=x$pos,las=2,cex.names=0.5,ylab="Spearman's rho")
+})
+
+
+```
+
+### Permutation test  
+
+Here I'm going to resample the existing p-value data with random methylation direction.
+
+From that distribution I can estimate the 
+
+```{r,resampling3}
+
+scores <- -log10(gr$p) * sample(c(-1,1),length(gr$p),replace=TRUE)
+
+npermutes = 10000
+
+permute_res <- sapply(mygenenames, function(mygenename) {
+  mygene <- gr[gr$gene_names==mygenename,]
+  myol <- findOverlaps(xxgr,mygene)
+  x <- xxgr[queryHits(myol),]
+  xscore <- mean(-log10(x$p) * as.data.frame(x)[,8])
+  permutes <- replicate(n=npermutes ,  mean( -log10(gr$p) * sample(c(-1,1),length(gr$p),replace=TRUE ) ) )
+  greaterthan <- length(which(permutes > xscore))
+  lessthan <- length(which(permutes < xscore))
+  p_greater = greaterthan / ( greaterthan + lessthan )
+  p_less = lessthan / ( greaterthan + lessthan )
+  pval <- c(p_greater,p_less)
+  names(pval) = c("pval_greater","pval_less")
+  return(pval)
+})
+
+permute_res %>% kbl() %>% kable_styling()
+
+```
 
 ## Session info
 
