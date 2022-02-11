@@ -325,13 +325,13 @@ Then I'm also providing the beta values.
 
 mytable <- getData(meth)
 
-write.table(x=mytable,file="methylation_data.tsv",sep="\t",quote=FALSE)
+write.table(x=mytable,file="methylation_data.tsv",sep="\t",quote=FALSE,row.names=FALSE)
 
 mytable2 <- percMethylation(meth)
 
 mytable3 <- cbind(mytable[,1:3],mytable2)
 
-write.table(x=mytable3,file="methylation_betavals.tsv",sep="\t",quote=FALSE)
+write.table(x=mytable3,file="methylation_betavals.tsv",sep="\t",quote=FALSE,row.names=FALSE)
 
 ```
 
@@ -656,6 +656,72 @@ gr %>% kbl() %>% kable_styling()
 
 ```
 
+### Genome landscape of methylation changes across each CPG site
+
+Show the RHO/pval at each site, in context with the gene.
+
+```{r,landscape_example}
+
+library("liftOver")
+library(rtracklayer)
+library(GenomicFeatures)
+library(ggbio)
+library(Homo.sapiens)
+
+#load gene symbol : GRanges, one gene/row
+data(genesymbol, package = "biovizBase")
+#retrieve information of the gene of interest
+wh <- genesymbol[c("LEP")]+3000
+wh <- range(wh, ignore.strand = TRUE)
+#Plot the different transcripts  for our gene of interest
+tx_track <- autoplot(Homo.sapiens, which = wh)
+seqname <- c("chr7","chr7","chr7","chr7")
+starts <- c( 127885000 , 127885500, 127886000, 127886500 )
+ends <- c( 127885200 , 127885700, 127886200, 127886700 )
+gene_data <- GRanges(seqname, IRanges(starts, ends))
+gene_data$score <- c(0.5,1,2,5)
+generange <- GRanges(seqname, IRanges(127885000, 127886700))
+meth_track <- autoplot( gene_data , which = generange, geom = "bar")
+tracks(Genes=tx_track , Meth=meth_track, heights = c(0.3, 0.2)) + ylab("")
+
+```
+
+```{r,lep_landscape}
+
+chainfile = system.file(package="liftOver", "extdata", "hg38ToHg19.over.chain")
+ch = import.chain(chainfile)
+seqlevelsStyle(genes) = "UCSC"  # necessary
+genes19 <- liftOver(genes, ch)
+genes19 <- unlist(genes19)
+genome(genes19) <- "hg19"
+
+gr38 <- gr
+seqlevelsStyle(gr38) = "UCSC"  # necessary
+gr19 <- liftOver(gr38, ch)
+gr19 <- unlist(gr19)
+genome(gr19) <- "hg19"
+ranges(gr19) <- ranges(gr19)+2
+
+generange <- genes19[7]
+gr19$score <- gr19$r
+gr19$sig <- as.character(as.numeric(gr19$p < 0.05))
+gr19$sig <- gsub("0","gray",gr19$sig)
+gr19$sig <- gsub("1","red",gr19$sig)
+
+meth_data <- gr19[queryHits(findOverlaps(gr19,generange))]
+
+meth_track <- autoplot( meth_data , which = generange, geom = "bar", fill= meth_data$sig )
+wh <- genesymbol[c("LEP")]+3000
+wh <- range(wh, ignore.strand = TRUE)
+#Plot the different transcripts  for our gene of interest
+tx_track <- autoplot(Homo.sapiens, which = wh)
+tracks(Genes=tx_track , Meth=meth_track, heights = c(0.1, 0.2)) + ylab("")
+
+tx_track <- autoplot(Homo.sapiens, which = generange)
+tracks(Genes=tx_track , Meth=meth_track, heights = c(0.1, 0.2)) + ylab("")
+
+```
+
 ### Graph of correlation coefficient and p-values across gene loci
 
 ```{r,loci_graph1}
@@ -673,6 +739,34 @@ sapply(mygenenames, function(mygenename) {
   barplot(-log(x$p),names=x$pos,las=2,cex.names=0.5,ylab="-log(p) nominal",main=mygenename)
   abline(h=-log(0.05))
   barplot(x$rho,names=x$pos,las=2,cex.names=0.5,ylab="Spearman's rho")
+})
+
+
+```
+
+
+## Scatterplot of GWG vs aggregated locus methylation
+
+```{r,scatter2}
+
+CHR=as.vector(seqnames(GRanges(meth)))
+POS=as.character(start(ranges(GRanges(meth))))
+CHRPOS=paste("chr",CHR,":",POS,sep="")
+
+lapply(c(1,2,4:7), function(i) {
+
+  gene <- genes[i]
+  gname <- genes[i]$gene_names
+  myrows <- subjectHits( findOverlaps( gene , GRanges(getData(meth)[,1:3] )) )
+  betas <- percMethylation(meth)[myrows,]
+  cm <- colMeans(betas)
+  ct <- cor.test(cm,z,method="s")
+  SUBHEADER=paste("rho=",signif(ct$est,2), " p=",signif(ct$p.value,2),sep="")
+  plot(z,cm,pch=19,xlab="GWG (kg)",ylab="% methylation",main=gname)
+  mylm <- lm( cm ~ z )
+  abline(mylm,lwd=3,lty=2,col="red")
+  mtext(SUBHEADER)
+
 })
 
 
