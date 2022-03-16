@@ -6,6 +6,9 @@ output:
   html_document:
     toc: true
     toc_float: true
+    code_folding: hide
+    fig_width: 7
+    fig_height: 7
 theme: cosmo
 ---
 
@@ -22,6 +25,13 @@ suppressPackageStartupMessages({
   library("methylKit")
   library("gplots")
   library("seqinr")
+
+  library("liftOver")
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ggbio)
+  library(Homo.sapiens)
+
 })
 
 ```
@@ -496,7 +506,7 @@ genes <- amp
 
 genes %>% kbl() %>% kable_styling()
 
-par(mfrow=c(1,2))
+par(mfrow=c(1,1))
 x <- lapply( 1:nrow(meth), function(i) {
   x <- as.vector(percMethylation(meth)[i,])
   cor <- cor.test(x,z,method="pearson")
@@ -507,10 +517,10 @@ x <- lapply( 1:nrow(meth), function(i) {
   CHRPOS=paste("chr",CHR,":",POS,sep="")
   HEADER = paste("Site",i,CHRPOS,"p=",round(p,3)," r=",round(r,3))
 
-  plot(z,x,xlab="GWG",ylab="Beta",main="Pearson")
-  mtext(HEADER)
-  mylm <- lm( x ~ z )
-  abline(mylm,lwd=3,lty=2,col="red")
+  #plot(z,x,xlab="GWG",ylab="Beta",main="Pearson")
+  #mtext(HEADER)
+  #mylm <- lm( x ~ z )
+  #abline(mylm,lwd=3,lty=2,col="red")
 
   cor <- cor.test(x,z,method="spearman")
   p <- cor$p.value
@@ -587,6 +597,8 @@ meth <- unite(myobjf, destrand=FALSE)
 
 Now run a spearman correlation test of GWG with Beta vals.
 
+Have modified the script so it doesn't plot the pearson values.
+
 ```{r,correl3}
 
 z <- samplesheet$GWG
@@ -595,7 +607,7 @@ genes <- amp
 
 genes %>% kbl() %>% kable_styling()
 
-par(mfrow=c(1,2))
+par(mfrow=c(1,1))
 x <- lapply( 1:nrow(meth), function(i) {
   x <- as.vector(percMethylation(meth)[i,])
   cor <- cor.test(x,z,method="pearson")
@@ -606,10 +618,10 @@ x <- lapply( 1:nrow(meth), function(i) {
   CHRPOS=paste("chr",CHR,":",POS,sep="")
   HEADER = paste("Site",i,CHRPOS,"p=",round(p,3)," r=",round(r,3))
 
-  plot(z,x,xlab="GWG",ylab="Beta",main="Pearson")
-  mtext(HEADER)
-  mylm <- lm( x ~ z )
-  abline(mylm,lwd=3,lty=2,col="red")
+#  plot(z,x,xlab="GWG",ylab="Beta",main="Pearson")
+#  mtext(HEADER)
+#  mylm <- lm( x ~ z )
+#  abline(mylm,lwd=3,lty=2,col="red")
 
   cor <- cor.test(x,z,method="spearman")
   p <- cor$p.value
@@ -662,12 +674,6 @@ Show the RHO/pval at each site, in context with the gene.
 
 ```{r,landscape_example}
 
-library("liftOver")
-library(rtracklayer)
-library(GenomicFeatures)
-library(ggbio)
-library(Homo.sapiens)
-
 #load gene symbol : GRanges, one gene/row
 data(genesymbol, package = "biovizBase")
 #retrieve information of the gene of interest
@@ -690,8 +696,9 @@ tracks(Genes=tx_track , Meth=meth_track, heights = c(0.3, 0.2)) + ylab("")
 
 chainfile = system.file(package="liftOver", "extdata", "hg38ToHg19.over.chain")
 ch = import.chain(chainfile)
-seqlevelsStyle(genes) = "UCSC"  # necessary
-genes19 <- liftOver(genes, ch)
+genes2 <- genes
+seqlevelsStyle(genes2) = "UCSC"  # necessary
+genes19 <- liftOver(genes2, ch)
 genes19 <- unlist(genes19)
 genome(genes19) <- "hg19"
 
@@ -702,22 +709,73 @@ gr19 <- unlist(gr19)
 genome(gr19) <- "hg19"
 ranges(gr19) <- ranges(gr19)+2
 
+# LEP 7
 generange <- genes19[7]
 gr19$score <- gr19$r
 gr19$sig <- as.character(as.numeric(gr19$p < 0.05))
 gr19$sig <- gsub("0","gray",gr19$sig)
 gr19$sig <- gsub("1","red",gr19$sig)
-
 meth_data <- gr19[queryHits(findOverlaps(gr19,generange))]
-
 meth_track <- autoplot( meth_data , which = generange, geom = "bar", fill= meth_data$sig )
 wh <- genesymbol[c("LEP")]+3000
 wh <- range(wh, ignore.strand = TRUE)
 #Plot the different transcripts  for our gene of interest
 tx_track <- autoplot(Homo.sapiens, which = wh)
 tracks(Genes=tx_track , Meth=meth_track, heights = c(0.1, 0.2)) + ylab("")
-
 tx_track <- autoplot(Homo.sapiens, which = generange)
+tracks(Genes=tx_track , Meth=meth_track, heights = c(0.1, 0.2)) + ylab("")
+
+# TNF 4
+generange <- genes19[4]
+gr19$score <- gr19$r
+gr19$sig <- as.character(as.numeric(gr19$p < 0.05))
+gr19$sig <- gsub("0","gray",gr19$sig)
+gr19$sig <- gsub("1","red",gr19$sig)
+meth_data <- gr19[queryHits(findOverlaps(gr19,generange)) ]
+meth_track <- autoplot( meth_data , which = generange, geom = "bar", fill= meth_data$sig )
+wh <- genesymbol[c("TNF")]+1000
+wh <- range(wh, ignore.strand = TRUE)
+tx_track <- autoplot(Homo.sapiens, which = wh)
+tracks(Genes=tx_track , Meth=meth_track, heights = c(0.1, 0.2)) + ylab("")
+
+# SOCS3 1
+generange <- genes19[1]
+gr19$score <- gr19$r
+gr19$sig <- as.character(as.numeric(gr19$p < 0.05))
+gr19$sig <- gsub("0","gray",gr19$sig)
+gr19$sig <- gsub("1","red",gr19$sig)
+meth_data <- gr19[queryHits(findOverlaps(gr19,generange)) ]
+meth_track <- autoplot( meth_data , which = generange, geom = "bar", fill= meth_data$sig )
+wh <- genesymbol[c("SOCS3")]+1000
+wh <- range(wh, ignore.strand = TRUE)
+tx_track <- autoplot(Homo.sapiens, which = wh)
+tracks(Genes=tx_track , Meth=meth_track, heights = c(0.1, 0.2)) + ylab("")
+
+# POMC_2 2
+generange <- genes19[2]
+gr19$score <- gr19$r
+gr19$sig <- as.character(as.numeric(gr19$p < 0.05))
+gr19$sig <- gsub("0","gray",gr19$sig)
+gr19$sig <- gsub("1","red",gr19$sig)
+meth_data <- gr19[queryHits(findOverlaps(gr19,generange)) ]
+meth_track <- autoplot( meth_data , which = generange, geom = "bar", fill= meth_data$sig )
+wh <- genesymbol[c("POMC")]+1000
+wh <- range(wh, ignore.strand = TRUE)
+tx_track <- autoplot(Homo.sapiens, which = wh)
+tracks(Genes=tx_track , Meth=meth_track, heights = c(0.1, 0.2)) + ylab("")
+
+
+# NPY_1 5
+generange <- genes19[5]
+gr19$score <- gr19$r
+gr19$sig <- as.character(as.numeric(gr19$p < 0.05))
+gr19$sig <- gsub("0","gray",gr19$sig)
+gr19$sig <- gsub("1","red",gr19$sig)
+meth_data <- gr19[queryHits(findOverlaps(gr19,generange)) ]
+meth_track <- autoplot( meth_data , which = generange, geom = "bar", fill= meth_data$sig )
+wh <- genesymbol[c("NPY")]+1000
+wh <- range(wh, ignore.strand = TRUE)
+tx_track <- autoplot(Homo.sapiens, which = wh)
 tracks(Genes=tx_track , Meth=meth_track, heights = c(0.1, 0.2)) + ylab("")
 
 ```
@@ -747,6 +805,8 @@ sapply(mygenenames, function(mygenename) {
 
 ## Scatterplot of GWG vs aggregated locus methylation
 
+Need to include the formula of the association.
+
 ```{r,scatter2}
 
 CHR=as.vector(seqnames(GRanges(meth)))
@@ -761,9 +821,15 @@ lapply(c(1,2,4:7), function(i) {
   betas <- percMethylation(meth)[myrows,]
   cm <- colMeans(betas)
   ct <- cor.test(cm,z,method="s")
-  SUBHEADER=paste("rho=",signif(ct$est,2), " p=",signif(ct$p.value,2),sep="")
-  plot(z,cm,pch=19,xlab="GWG (kg)",ylab="% methylation",main=gname)
   mylm <- lm( cm ~ z )
+
+  SUBHEADER=paste( "Int=",signif(mylm$coefficients[1],3),
+    ", slope=",signif(mylm$coefficients[2],3),
+    ", r2adj=",signif(summary(mylm)$adj.r.squared,3),
+    ", rho=",signif(ct$est,3),
+    ", p=",signif(ct$p.value,3), sep="")
+
+  plot(z,cm,pch=19,xlab="GWG (kg)",ylab="% methylation",main=gname)
   abline(mylm,lwd=3,lty=2,col="red")
   mtext(SUBHEADER)
 
@@ -826,10 +892,10 @@ x <- lapply( 1:nrow(meth), function(i) {
   CHRPOS=paste("chr",CHR,":",POS,sep="")
   HEADER = paste("Site",i,CHRPOS,"p=",round(p,3)," r=",round(r,3))
 
-  plot(z,x,xlab="GWG",ylab="Beta",main="Pearson")
-  mtext(HEADER)
-  mylm <- lm( x ~ z )
-  abline(mylm,lwd=3,lty=2,col="red")
+  #plot(z,x,xlab="GWG",ylab="Beta",main="Pearson")
+  #mtext(HEADER)
+  #mylm <- lm( x ~ z )
+  #abline(mylm,lwd=3,lty=2,col="red")
 
   cor <- cor.test(x,z,method="spearman")
   p <- cor$p.value
@@ -952,10 +1018,10 @@ x <- lapply( 1:nrow(meth), function(i) {
   CHRPOS=paste("chr",CHR,":",POS,sep="")
   HEADER = paste("Site",i,CHRPOS,"p=",round(p,3)," r=",round(r,3))
 
-  plot(z,x,xlab="GWG",ylab="Beta",main="Pearson")
-  mtext(HEADER)
-  mylm <- lm( x ~ z )
-  abline(mylm,lwd=3,lty=2,col="red")
+  #plot(z,x,xlab="GWG",ylab="Beta",main="Pearson")
+  #mtext(HEADER)
+  #mylm <- lm( x ~ z )
+  #abline(mylm,lwd=3,lty=2,col="red")
 
   cor <- cor.test(x,z,method="spearman")
   p <- cor$p.value
