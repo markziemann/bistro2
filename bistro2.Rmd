@@ -680,14 +680,14 @@ data(genesymbol, package = "biovizBase")
 wh <- genesymbol[c("LEP")]+3000
 wh <- range(wh, ignore.strand = TRUE)
 #Plot the different transcripts  for our gene of interest
-tx_track <- autoplot(Homo.sapiens, which = wh)
+tx_track <- autoplot(Homo.sapiens, which = wh) + theme_bw()
 seqname <- c("chr7","chr7","chr7","chr7")
 starts <- c( 127885000 , 127885500, 127886000, 127886500 )
 ends <- c( 127885200 , 127885700, 127886200, 127886700 )
 gene_data <- GRanges(seqname, IRanges(starts, ends))
 gene_data$score <- c(0.5,1,2,5)
 generange <- GRanges(seqname, IRanges(127885000, 127886700))
-meth_track <- autoplot( gene_data , which = generange, geom = "bar")
+meth_track <- autoplot( gene_data , which = generange, geom = "bar") + theme_bw()
 tracks(Genes=tx_track , Meth=meth_track, heights = c(0.3, 0.2)) + ylab("")
 
 ```
@@ -713,55 +713,55 @@ ranges(gr19) <- ranges(gr19)+2
 generange <- genes19[7]
 gr19$score <- gr19$r
 gr19$sig <- as.character(as.numeric(gr19$p < 0.05))
-gr19$sig <- gsub("0","gray",gr19$sig)
+gr19$sig <- gsub("0","black",gr19$sig)
 gr19$sig <- gsub("1","red",gr19$sig)
 meth_data <- gr19[queryHits(findOverlaps(gr19,generange))]
-meth_track <- autoplot( meth_data , which = generange, geom = "bar", fill= meth_data$sig )
+meth_track <- autoplot( meth_data , which = generange, geom = "bar", fill= meth_data$sig ) + theme_bw()
 wh <- genesymbol[c("LEP")]+3000
 wh <- range(wh, ignore.strand = TRUE)
 #Plot the different transcripts  for our gene of interest
-tx_track <- autoplot(Homo.sapiens, which = wh)
+tx_track <- autoplot(Homo.sapiens, which = wh) + theme_bw()
 tracks(Genes=tx_track , Meth=meth_track, heights = c(0.1, 0.2)) + ylab("")
-tx_track <- autoplot(Homo.sapiens, which = generange)
+tx_track <- autoplot(Homo.sapiens, which = generange) + theme_bw()
 tracks(Genes=tx_track , Meth=meth_track, heights = c(0.1, 0.2)) + ylab("")
 
 # TNF 4
 generange <- genes19[4]
 gr19$score <- gr19$r
 gr19$sig <- as.character(as.numeric(gr19$p < 0.05))
-gr19$sig <- gsub("0","gray",gr19$sig)
+gr19$sig <- gsub("0","black",gr19$sig)
 gr19$sig <- gsub("1","red",gr19$sig)
 meth_data <- gr19[queryHits(findOverlaps(gr19,generange)) ]
-meth_track <- autoplot( meth_data , which = generange, geom = "bar", fill= meth_data$sig )
+meth_track <- autoplot( meth_data , which = generange, geom = "bar", fill= meth_data$sig ) + theme_bw()
 wh <- genesymbol[c("TNF")]+1000
 wh <- range(wh, ignore.strand = TRUE)
-tx_track <- autoplot(Homo.sapiens, which = wh)
+tx_track <- autoplot(Homo.sapiens, which = wh) + theme_bw()
 tracks(Genes=tx_track , Meth=meth_track, heights = c(0.1, 0.2)) + ylab("")
 
 # SOCS3 1
 generange <- genes19[1]
 gr19$score <- gr19$r
 gr19$sig <- as.character(as.numeric(gr19$p < 0.05))
-gr19$sig <- gsub("0","gray",gr19$sig)
+gr19$sig <- gsub("0","black",gr19$sig)
 gr19$sig <- gsub("1","red",gr19$sig)
 meth_data <- gr19[queryHits(findOverlaps(gr19,generange)) ]
-meth_track <- autoplot( meth_data , which = generange, geom = "bar", fill= meth_data$sig )
+meth_track <- autoplot( meth_data , which = generange, geom = "bar", fill= meth_data$sig ) + theme_bw()
 wh <- genesymbol[c("SOCS3")]+1000
 wh <- range(wh, ignore.strand = TRUE)
-tx_track <- autoplot(Homo.sapiens, which = wh)
+tx_track <- autoplot(Homo.sapiens, which = wh) + theme_bw() 
 tracks(Genes=tx_track , Meth=meth_track, heights = c(0.1, 0.2)) + ylab("")
 
 # POMC_2 2
 generange <- genes19[2]
 gr19$score <- gr19$r
 gr19$sig <- as.character(as.numeric(gr19$p < 0.05))
-gr19$sig <- gsub("0","gray",gr19$sig)
+gr19$sig <- gsub("0","black",gr19$sig)
 gr19$sig <- gsub("1","red",gr19$sig)
 meth_data <- gr19[queryHits(findOverlaps(gr19,generange)) ]
-meth_track <- autoplot( meth_data , which = generange, geom = "bar", fill= meth_data$sig )
+meth_track <- autoplot( meth_data , which = generange, geom = "bar", fill= meth_data$sig ) + theme_bw()
 wh <- genesymbol[c("POMC")]+1000
 wh <- range(wh, ignore.strand = TRUE)
-tx_track <- autoplot(Homo.sapiens, which = wh)
+tx_track <- autoplot(Homo.sapiens, which = wh) + theme_bw()
 tracks(Genes=tx_track , Meth=meth_track, heights = c(0.1, 0.2)) + ylab("")
 
 
@@ -769,13 +769,13 @@ tracks(Genes=tx_track , Meth=meth_track, heights = c(0.1, 0.2)) + ylab("")
 generange <- genes19[5]
 gr19$score <- gr19$r
 gr19$sig <- as.character(as.numeric(gr19$p < 0.05))
-gr19$sig <- gsub("0","gray",gr19$sig)
+gr19$sig <- gsub("0","black",gr19$sig)
 gr19$sig <- gsub("1","red",gr19$sig)
 meth_data <- gr19[queryHits(findOverlaps(gr19,generange)) ]
-meth_track <- autoplot( meth_data , which = generange, geom = "bar", fill= meth_data$sig )
+meth_track <- autoplot( meth_data , which = generange, geom = "bar", fill= meth_data$sig ) + theme_bw()
 wh <- genesymbol[c("NPY")]+1000
 wh <- range(wh, ignore.strand = TRUE)
-tx_track <- autoplot(Homo.sapiens, which = wh)
+tx_track <- autoplot(Homo.sapiens, which = wh) + theme_bw()
 tracks(Genes=tx_track , Meth=meth_track, heights = c(0.1, 0.2)) + ylab("")
 
 ```
@@ -799,13 +799,14 @@ sapply(mygenenames, function(mygenename) {
   barplot(x$rho,names=x$pos,las=2,cex.names=0.5,ylab="Spearman's rho")
 })
 
-
 ```
 
 
 ## Scatterplot of GWG vs aggregated locus methylation
 
 Need to include the formula of the association.
+
+There are two sets of charts, the second set has y-axis set to 28%.
 
 ```{r,scatter2}
 
@@ -830,6 +831,28 @@ lapply(c(1,2,4:7), function(i) {
     ", p=",signif(ct$p.value,3), sep="")
 
   plot(z,cm,pch=19,xlab="GWG (kg)",ylab="% methylation",main=gname)
+  abline(mylm,lwd=3,lty=2,col="red")
+  mtext(SUBHEADER)
+
+})
+
+lapply(c(1,2,4:7), function(i) {
+
+  gene <- genes[i]
+  gname <- genes[i]$gene_names
+  myrows <- subjectHits( findOverlaps( gene , GRanges(getData(meth)[,1:3] )) )
+  betas <- percMethylation(meth)[myrows,]
+  cm <- colMeans(betas)
+  ct <- cor.test(cm,z,method="s")
+  mylm <- lm( cm ~ z )
+
+  SUBHEADER=paste( "Int=",signif(mylm$coefficients[1],3),
+    ", slope=",signif(mylm$coefficients[2],3),
+    ", r2adj=",signif(summary(mylm)$adj.r.squared,3),
+    ", rho=",signif(ct$est,3),
+    ", p=",signif(ct$p.value,3), sep="")
+
+  plot(z,cm,pch=19,xlab="GWG (kg)",ylab="% methylation",main=gname, ylim=c(0,28))
   abline(mylm,lwd=3,lty=2,col="red")
   mtext(SUBHEADER)
 
